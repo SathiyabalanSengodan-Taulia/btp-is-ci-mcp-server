@@ -1,0 +1,21 @@
+{
+  "name": "sbs-btp-is-ci-mcp",
+  "version": "1.1.0",
+  "description": "MCP server for SAP BTP Integration Suite CI OData APIs",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build:btp": "mbt build",
+    "deploy:btp": "cf deploy mta_archives/sbs-btp-is-ci-mcp_1.1.0.mtar"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "express": "^4.22.1",
+    "express-rate-limit": "^7.0.0",
+    "odata-mcp-proxy": "^1.0.0"
+  }
+}

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPI AI Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sap-blue:    #0070f2;
+      --sap-blue-dk: #0057c2;
+      --bg:          #f5f6f7;
+      --surface:     #ffffff;
+      --border:      #d9d9d9;
+      --text:        #1d2d3e;
+      --text-muted:  #6a7185;
+      --user-bg:     #0070f2;
+      --user-fg:     #ffffff;
+      --bot-bg:      #ffffff;
+      --bot-border:  #e5e7eb;
+      --radius:      12px;
+      --shadow:      0 1px 4px rgba(0,0,0,.08);
+    }
+
+    html, body { height: 100%; font-family: "72", "72full", Arial, sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── Layout ── */
+    .app { display: flex; flex-direction: column; height: 100vh; max-width: 900px; margin: 0 auto; }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: var(--shadow);
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 32px; height: 32px; background: var(--sap-blue);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 18px; height: 18px; fill: #fff; }
+    .header-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .header-badge {
+      font-size: 11px; background: #e8f3ff; color: var(--sap-blue);
+      border: 1px solid #c0dcff; border-radius: 4px; padding: 2px 7px; font-weight: 500;
+    }
+    .new-chat-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: none; border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 12px;
+      font-size: 13px; color: var(--text-muted);
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .new-chat-btn:hover { border-color: var(--sap-blue); color: var(--sap-blue); background: #f0f7ff; }
+    .new-chat-btn svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+
+    /* ── Chat area ── */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Welcome screen ── */
+    .welcome {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; flex: 1; text-align: center; padding: 40px 24px;
+    }
+    .welcome-icon {
+      width: 56px; height: 56px; background: var(--sap-blue);
+      border-radius: 16px; display: flex; align-items: center;
+      justify-content: center; margin-bottom: 16px;
+    }
+    .welcome-icon svg { width: 28px; height: 28px; fill: #fff; }
+    .welcome h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .welcome p  { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px; }
+    .suggestion-btn {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 8px 16px; font-size: 13px;
+      color: var(--text); cursor: pointer; transition: all .15s;
+    }
+    .suggestion-btn:hover { border-color: var(--sap-blue); color: var(--sap-blue); background: #f0f7ff; }
+
+    /* ── Message bubbles ── */
+    .message { display: flex; gap: 10px; max-width: 100%; }
+    .message.user  { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+    }
+    .message.user  .avatar { background: var(--sap-blue); color: #fff; }
+    .message.bot   .avatar { background: #e9edf2; color: var(--text); }
+
+    /* ── Bot bubble wrapper (for copy button positioning) ── */
+    .bubble-wrap {
+      position: relative;
+      max-width: calc(100% - 52px);
+    }
+    .message.user .bubble-wrap { max-width: calc(100% - 52px); }
+
+    .bubble {
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .message.user .bubble {
+      background: var(--user-bg); color: var(--user-fg);
+      border-bottom-right-radius: 4px;
+    }
+    .message.bot .bubble {
+      background: var(--bot-bg); border: 1px solid var(--bot-border);
+      border-bottom-left-radius: 4px; box-shadow: var(--shadow);
+    }
+
+    /* ── Copy button ── */
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      display: flex; align-items: center; gap: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 3px 8px;
+      font-size: 11px; color: var(--text-muted);
+      cursor: pointer; opacity: 0; transition: opacity .15s, color .15s, border-color .15s;
+    }
+    .bubble-wrap:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--sap-blue); border-color: var(--sap-blue); background: #f0f7ff; }
+    .copy-btn.copied { color: #2e7d32; border-color: #a5d6a7; background: #f1f8e9; opacity: 1; }
+    .copy-btn svg { width: 11px; height: 11px; fill: currentColor; }
+
+    /* ── Markdown inside bot bubbles ── */
+    .bubble p   { margin-bottom: 8px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble h1, .bubble h2, .bubble h3 { margin: 12px 0 6px; font-size: 14px; font-weight: 600; }
+    .bubble ul, .bubble ol { padding-left: 20px; margin-bottom: 8px; }
+    .bubble li  { margin-bottom: 2px; }
+    .bubble code {
+      background: #f4f5f6; border-radius: 4px; padding: 1px 5px;
+      font-size: 12px; font-family: monospace;
+    }
+    .bubble pre {
+      background: #f4f5f6; border-radius: 6px; padding: 10px 12px;
+      overflow-x: auto; margin: 8px 0;
+    }
+    .bubble pre code { background: none; padding: 0; }
+    .bubble table {
+      border-collapse: collapse; width: 100%; margin: 8px 0;
+      font-size: 13px;
+    }
+    .bubble th, .bubble td {
+      border: 1px solid var(--border); padding: 6px 10px; text-align: left;
+    }
+    .bubble th { background: #f4f5f6; font-weight: 600; }
+    .bubble tr:nth-child(even) td { background: #fafbfc; }
+    .bubble strong { font-weight: 600; }
+
+    /* ── Thinking indicator ── */
+    .thinking {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text-muted); font-size: 13px; padding: 4px 0;
+    }
+    .dots { display: flex; gap: 4px; }
+    .dots span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--sap-blue); animation: bounce .9s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: .15s; }
+    .dots span:nth-child(3) { animation-delay: .3s;  }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-5px); }
+    }
+
+    /* ── Error message ── */
+    .error-msg {
+      background: #fff0f0; border: 1px solid #ffcdd2;
+      border-radius: var(--radius); padding: 10px 14px;
+      font-size: 13px; color: #b71c1c;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .error-msg svg { width: 16px; height: 16px; fill: #b71c1c; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Input bar ── */
+    .input-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex; gap: 10px; align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .input-wrap { flex: 1; position: relative; }
+    textarea {
+      width: 100%;
+      min-height: 44px; max-height: 160px;
+      resize: none; overflow-y: auto;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; font-size: 14px; font-family: inherit;
+      color: var(--text); outline: none; line-height: 1.5;
+      transition: border-color .15s;
+    }
+    textarea:focus { border-color: var(--sap-blue); }
+    textarea::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 44px; height: 44px; flex-shrink: 0;
+      background: var(--sap-blue); border: none; border-radius: 10px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .send-btn:hover:not(:disabled) { background: var(--sap-blue-dk); }
+    .send-btn:disabled { background: #b0c4de; cursor: not-allowed; }
+    .send-btn svg { width: 18px; height: 18px; fill: #fff; }
+
+    /* ── Scrollbar ── */
+    .chat-area::-webkit-scrollbar { width: 6px; }
+    .chat-area::-webkit-scrollbar-track { background: transparent; }
+    .chat-area::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+      </div>
+      <span class="header-title">CPI AI Assistant</span>
+    </div>
+    <div class="header-right">
+      <button class="new-chat-btn" onclick="newChat()" title="Start a new conversation">
+        <svg viewBox="0 0 24 24"><path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        New Chat
+      </button>
+      <span class="header-badge">Powered by Claude</span>
+    </div>
+  </header>
+
+  <!-- Chat messages -->
+  <div class="chat-area" id="chatArea">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+      </div>
+      <h2>How can I help with your CPI tenant?</h2>
+      <p>Ask anything about your integration packages, iFlows, message logs, or security artifacts.</p>
+      <div class="suggestions">
+        <button class="suggestion-btn" onclick="sendSuggestion('List all integration packages')">List all packages</button>
+        <button class="suggestion-btn" onclick="sendSuggestion('Show last 10 failed message processing logs')">Failed messages</button>
+        <button class="suggestion-btn" onclick="sendSuggestion('List all deployed runtime artifacts and their status')">Runtime artifacts</button>
+        <button class="suggestion-btn" onclick="sendSuggestion('List all user credentials and OAuth2 client credentials')">Security artifacts</button>
+        <button class="suggestion-btn" onclick="sendSuggestion('List all JMS queues and their message depth')">JMS queues</button>
+        <button class="suggestion-btn" onclick="sendSuggestion('Show all data store entries')">Data stores</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-bar">
+    <div class="input-wrap">
+      <textarea
+        id="userInput"
+        placeholder="Ask about your CPI tenant..."
+        rows="1"
+      ></textarea>
+    </div>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  const chatArea   = document.getElementById('chatArea');
+  const userInput  = document.getElementById('userInput');
+  const sendBtn    = document.getElementById('sendBtn');
+
+  // Snapshot of the welcome screen HTML so we can restore it on "New Chat"
+  const welcomeHTML = document.getElementById('welcome').outerHTML;
+
+  let messages = [];
+  let busy     = false;
+
+  // Auto-resize textarea
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+  });
+
+  // Send on Enter (Shift+Enter for newline)
+  userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  function sendSuggestion(text) {
+    userInput.value = text;
+    sendMessage();
+  }
+
+  // ── New Chat ────────────────────────────────────────────────────────────────
+  function newChat() {
+    if (busy) return;
+    messages = [];
+    chatArea.innerHTML = welcomeHTML;
+    userInput.value = '';
+    userInput.style.height = 'auto';
+    userInput.focus();
+  }
+
+  // ── Copy to clipboard ───────────────────────────────────────────────────────
+  function copyMessage(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        Copied`;
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          Copy`;
+        btn.classList.remove('copied');
+      }, 2000);
+    }).catch(() => { /* clipboard access denied — silently ignore */ });
+  }
+
+  // ── Render a message bubble ─────────────────────────────────────────────────
+  function appendMessage(role, content, isMarkdown = false) {
+    // Remove welcome screen on first real message
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.remove();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `message ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? 'You' : 'AI';
+
+    const bubbleWrap = document.createElement('div');
+    bubbleWrap.className = 'bubble-wrap';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    if (isMarkdown) {
+      bubble.innerHTML = marked.parse(content, { breaks: true });
+    } else {
+      bubble.textContent = content;
+    }
+
+    bubbleWrap.appendChild(bubble);
+
+    // Copy button — only for bot messages
+    if (role === 'bot') {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.title = 'Copy response';
+      copyBtn.innerHTML = `
+        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        Copy`;
+      copyBtn.addEventListener('click', () => copyMessage(copyBtn, content));
+      bubbleWrap.appendChild(copyBtn);
+    }
+
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(bubbleWrap);
+    chatArea.appendChild(wrapper);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function appendThinking() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message bot';
+    wrapper.id = 'thinking';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = 'AI';
+
+    const bubbleWrap = document.createElement('div');
+    bubbleWrap.className = 'bubble-wrap';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble thinking';
+    bubble.innerHTML = `
+      <div class="dots">
+        <span></span><span></span><span></span>
+      </div>
+      <span>Thinking…</span>`;
+
+    bubbleWrap.appendChild(bubble);
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(bubbleWrap);
+    chatArea.appendChild(wrapper);
+    scrollToBottom();
+    return wrapper;
+  }
+
+  function appendError(msg, statusCode) {
+    const div = document.createElement('div');
+    div.className = 'error-msg';
+    const hint = statusCode === 429
+      ? 'Too many requests — please wait a moment.'
+      : statusCode === 504
+      ? 'The request timed out. Try a more specific query.'
+      : statusCode >= 500
+      ? 'Server error. Check that your CPI destination and API key are configured correctly.'
+      : '';
+    div.innerHTML = `
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <span><strong>${msg}</strong>${hint ? '<br><span style="font-weight:400;color:#c62828">' + hint + '</span>' : ''}</span>`;
+    chatArea.appendChild(div);
+    scrollToBottom();
+  }
+
+  function removeThinking() {
+    document.getElementById('thinking')?.remove();
+  }
+
+  function scrollToBottom() {
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text || busy) return;
+
+    busy = true;
+    sendBtn.disabled = true;
+    userInput.value  = '';
+    userInput.style.height = 'auto';
+
+    // Show user message
+    appendMessage('user', text);
+
+    // Add to history
+    messages.push({ role: 'user', content: text });
+
+    // Show thinking indicator
+    appendThinking();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ messages }),
+      });
+
+      removeThinking();
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        appendError(err.error || res.statusText, res.status);
+      } else {
+        const data = await res.json();
+
+        // Update message history with full agentic conversation
+        messages = data.messages ?? messages;
+
+        // Show assistant reply
+        appendMessage('bot', data.message, true);
+      }
+    } catch (err) {
+      removeThinking();
+      appendError(err.message);
+    } finally {
+      busy = false;
+      sendBtn.disabled = false;
+      userInput.focus();
+    }
+  }
+</script>
+</body>
+</html>

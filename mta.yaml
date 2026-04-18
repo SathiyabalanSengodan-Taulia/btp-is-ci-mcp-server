@@ -1,0 +1,55 @@
+_schema-version: "3.1"
+ID: sbs-btp-is-ci-mcp
+version: 1.1.0
+
+parameters:
+  enable-parallel-deployments: true
+
+modules:
+  - name: sbs-btp-is-ci-mcp
+    type: nodejs
+    path: .
+    parameters:
+      memory: 512M
+      disk-quota: 1G
+      buildpack: nodejs_buildpack
+      health-check-type: http
+      health-check-http-endpoint: /health
+      command: npm start
+    build-parameters:
+      builder: npm
+      ignore:
+        - .git/
+        - .env
+        - default-env.json
+    # ANTHROPIC_API_KEY must be set after deployment:
+    #   cf set-env sbs-btp-is-ci-mcp ANTHROPIC_API_KEY <your-key>
+    #   cf restage sbs-btp-is-ci-mcp
+    #
+    # Optional overrides:
+    #   cf set-env sbs-btp-is-ci-mcp MODEL_ID claude-opus-4-5
+    #   cf set-env sbs-btp-is-ci-mcp CHAT_TIMEOUT_MS 120000
+    requires:
+      - name: sbs-btp-is-ci-mcp-destination
+      - name: sbs-btp-is-ci-mcp-connectivity
+      - name: sbs-btp-is-ci-mcp-xsuaa
+
+resources:
+  - name: sbs-btp-is-ci-mcp-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+
+  - name: sbs-btp-is-ci-mcp-connectivity
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: connectivity
+      service-plan: lite
+
+  - name: sbs-btp-is-ci-mcp-xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: xs-security.json
